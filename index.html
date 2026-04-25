@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Set Theory Composer</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 40px auto; padding: 0 16px; background: #f8f8f8; color: #222; max-width: 1100px; }
+  h1 { font-size: 1.4em; margin-bottom: 2px; }
+  p.sub { color: #777; font-size: 0.85em; margin-bottom: 20px; }
+  .layout { display: flex; gap: 24px; align-items: flex-start; }
+  .col-left { flex: 1; min-width: 0; }
+  .col-right { flex: 1; min-width: 0; }
+  section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin-bottom: 14px; }
+  section h2 { font-size: 1em; margin-bottom: 8px; }
+  label { display: block; font-size: 0.82em; color: #555; margin-bottom: 3px; }
+  input, select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9em; margin-bottom: 8px; width: 100%; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .hint { font-size: 0.75em; color: #999; margin-top: -4px; margin-bottom: 8px; }
+  button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+  .btn-go { background: #333; color: #fff; }
+  .btn-go:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-stop { background: #ddd; color: #333; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  canvas { width: 100%; height: 120px; background: #111; border-radius: 4px; }
+  .seq { background: #fafafa; border: 1px solid #eee; border-radius: 4px; padding: 10px; margin-top: 10px; max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 0.8em; line-height: 1.9; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.72em; font-weight: 700; margin-right: 4px; }
+  .tag-T { background: #d0e8ff; color: #1a5f9e; }
+  .tag-I { background: #e8d0ff; color: #6b2fa0; }
+  .tag-R { background: #d0ffe0; color: #1a7a3a; }
+  .tag-seed { background: #fff3d0; color: #8a6d1b; }
+  .chip { display: inline-block; padding: 1px 5px; margin: 1px; border-radius: 2px; background: #eee; font-size: 0.82em; }
+  .chip.active { background: #333; color: #fff; }
+
+  /* Blog styles */
+  .blog { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 20px; line-height: 1.7; }
+  .blog h2 { font-size: 1.4em; margin-bottom: 4px; }
+  .blog .meta { color: #888; font-size: 0.85em; margin-bottom: 20px; }
+  .blog h3 { font-size: 1.05em; margin-top: 24px; margin-bottom: 6px; }
+  .blog p { margin-bottom: 12px; font-size: 0.92em; }
+  .blog code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-size: 0.88em; }
+
+  @media (max-width: 760px) { .layout { flex-direction: column; } }
+</style>
+</head>
+<body>
+  <h1>Pitch Set Theory Composer</h1>
+  <p class="sub">Automated composition via transpose, invert &amp; retrograde</p>
+
+  <div class="layout">
+    <!-- Left column: Composer tool -->
+    <div class="col-left">
+      <section>
+        <h2>Pitch Class Set</h2>
+        <label>Pitch classes (0–11, comma-separated)</label>
+        <input type="text" id="pcsInput" value="0,3,7">
+        <div class="hint">0=C 1=C# 2=D 3=D# 4=E 5=F 6=F# 7=G 8=G# 9=A 10=A# 11=B</div>
+      </section>
+
+      <section>
+        <h2>Settings</h2>
+        <div class="row">
+          <div><label>Operations</label><input type="number" id="numOps" value="8" min="1" max="64"></div>
+          <div><label>Duration (ms)</label><input type="number" id="noteDur" value="300" min="50" max="2000" step="50"></div>
+          <div><label>Octave</label>
+            <select id="baseOctave"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div><label>Waveform</label>
+            <select id="waveform"><option value="sine">Sine</option><option value="triangle" selected>Triangle</option><option value="sawtooth">Sawtooth</option><option value="square">Square</option></select>
+          </div>
+          <div><label>Weights (T/I/R)</label><input type="text" id="weights" value="2,1,1"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="btn-row">
+          <button class="btn-go" id="generateBtn">Generate</button>
+          <button class="btn-go" id="playBtn" disabled>Play</button>
+          <button class="btn-stop" id="stopBtn" disabled>Stop</button>
+        </div>
+        <canvas id="rollCanvas"></canvas>
+        <div class="seq" id="seqDisplay"><span style="color:#aaa;">Hit Generate to start.</span></div>
+      </section>
+    </div>
+
+    <div class="col-right">
+      <div class="blog">
+        <h2>Automating Composition with Pitch Set Theory and Web Audio</h2>
+        <p class="meta">Lab 5 — Automated Composition</p>
+
+        <h3>What Is Pitch Set Theory?</h3>
+
+        <p>
+          Pitch set theory represents notes not as letter names but as integers 0 through 11, where 0 is C, 1 is C#, and so on. 
+          A chord or motif becomes a set of these integers — for example, a minor triad rooted on C is <code>{0, 3, 7}</code>. 
+          The power of this representation is that tranformations can be expressed mathematically. There are three core 
+          operations: transposition shifts every pitch class by <em>n</em> semitones (mod 12), inversion reflects each pitch class around 
+          an axis, and retrograde simply reverses the order of notes in the set. This tool creates an automated process for These
+          ideas; given a pitch class set, it randomly chains those events together to produce a sequence of set which are then played.
+        </p>
+
+        <h3>Building It</h3>
+
+        <p>
+          The core operations themselves were pretty interesting to implment. Transposition is one line of code — 
+          map each pitch class to <code>(pc + n) % 12</code>. Inversion is <code>(axis - pc) % 12</code>. Retrograde is just 
+          array reversal. What surprised me was how much musical character comes from decisions that have nothing to do with 
+          the theory itself, but how you chain the operations together and how you weight the probability of each one occurring.
+        </p>
+
+        <p>
+          For example, choosing a base octave dramatically changes the feel of the output. The same sequence of pitch classes 
+          sounds deep in octave 3 and a bit brighter in octave 5. Similarly, tuning the operation weights — making transposition 
+          twice as likely as inversion, say — shapes whether the output drifts gradually through pitch space or jumps around erratically.
+        </p>
+
+        <p>
+          On the Web Audio side, each note is synthesized with an <code>OscillatorNode</code> routed through a <code>GainNode</code> 
+          with an exponential decay envelope. This is bare-minimum synthesis, but it's enough to hear the relationships between pitch 
+          classes clearly. I also built a small piano roll visualization using a canvas element, which color-codes notes by which 
+          operation produced them. You can visually spot when a retrograde mirrors a previous pattern, or when a transposition shifts 
+          the whole set up by a consistent interval.
+        </p>
+
+        <h3>Reflections</h3>
+
+        <p>
+          The biggest insight from this project is that pitch set theory works better as a generative tool than I expected. 
+          In class, it was mostly presented as mostly math and backend stuff, rather than actual sounds. It was interesting to see how
+          these transformations actually change the musicality of whatever is being played; b minor triad transposed is still a minor triad. 
+          Inverted, it becomes a major triad, as an example.
+        </p>
+
+        <p>
+          More importantly, the output is clearly not "composed" in a traditional. There's no sense of phrasing, tension, or resolution. 
+          The randomness of operation selection means there's no large-scale form. This is where a human composer would step in and create
+          some sort of rules to mimic a certain genre or style of a piece/music. I think that's the honest takeaway about 
+          algorithmic composition in general: the algorithm gives you material, but the musicality still has to come from somewhere.
+        </p>
+      </div>
+    </div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
